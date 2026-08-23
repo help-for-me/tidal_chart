@@ -63,6 +63,15 @@ this environment. Planned shape, per the original idea capture:
 - Bundles converted station data (see `Data/`) as app resources.
 - No network calls in the core tide-chart flow.
 
+MVP screen (0.3.0, see `docs/ROADMAP.md`): on open, show the device's
+current coordinates, then a chart of high/low tide for the nearest
+station across a 5-day window (yesterday, today, next 3 days). Depends
+on `HarmonicPredictor.extrema(from:to:)` — see `Sources/TidalEngine/HarmonicPredictor.swift` — for the high/low points themselves.
+
+Post-MVP feature order (see `docs/ROADMAP.md`): change location, change
+date, configurable day range, then a full continuous tidal graph (as
+opposed to the MVP's high/low-only chart).
+
 ## Open questions carried into the buildout
 
 - **TCD vs. direct-from-authority data sourcing** — see above, affects

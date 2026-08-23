@@ -32,6 +32,24 @@ it works anywhere, indefinitely, with zero connectivity.
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#app-shell-next-step) for
   why and what's next.
 
+## MVP screen
+
+On open: show the device's current coordinates, then a chart of high
+and low tide for the nearest station across a 5-day window — yesterday,
+today, and the next 3 days.
+
+## Planned features (post-MVP)
+
+In rough priority order — see [`docs/ROADMAP.md`](docs/ROADMAP.md) for
+how these map to versions:
+
+1. Change location (override GPS with a manually chosen station/place).
+2. Change date (view the tide window centered on a different date).
+3. Configure the range of days shown (the MVP's 5-day window becomes
+   adjustable).
+4. Full tidal graph — a continuous water-level curve, not just
+   high/low points.
+
 ## Data scope roadmap
 
 Starting narrow and expanding, matching the engine/app maturing

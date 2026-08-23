@@ -24,4 +24,18 @@ public struct HarmonicPredictor: Sendable {
     public func waterLevel(at date: Date) -> Double {
         fatalError("HarmonicPredictor.waterLevel(at:) not yet implemented")
     }
+
+    /// High and low tide events (local extrema of `waterLevel(at:)`)
+    /// between `startDate` and `endDate`, in chronological order.
+    ///
+    /// The summed curve is a sum of cosines with different periods, so
+    /// extrema have no closed form — this requires sampling
+    /// `waterLevel(at:)` and refining around sign changes in its slope
+    /// (e.g. bisection or Newton's method on a numerical derivative),
+    /// not a formula.
+    ///
+    /// - Not yet implemented.
+    public func extrema(from startDate: Date, to endDate: Date) -> [TideExtremum] {
+        fatalError("HarmonicPredictor.extrema(from:to:) not yet implemented")
+    }
 }
