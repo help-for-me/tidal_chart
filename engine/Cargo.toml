@@ -1,0 +1,16 @@
+[package]
+name = "tidal-engine"
+version = "0.0.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Offline, on-device tide prediction via the harmonic method (NOAA Special Publication No. 98)."
+repository = "https://github.com/help-for-me/tidal_chart"
+
+[lib]
+name = "tidal_engine"
+# staticlib/cdylib so this can be linked into a Swift app (via a
+# generated C header / UniFFI bindings) or an Android app (via JNI),
+# in addition to being used directly as a Rust crate.
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]

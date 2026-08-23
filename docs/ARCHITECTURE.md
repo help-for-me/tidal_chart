@@ -1,6 +1,6 @@
 # Architecture
 
-## Engine: original implementation, no GPL dependency
+## Engine: single Rust core, no GPL dependency
 
 XTide (the well-known open-source harmonic tide engine) is GPL-licensed,
 and its `libtcd` reader is part of the same GPL codebase. GPL has a
@@ -19,9 +19,31 @@ XTide's or any other GPL project's code. This is:
   argument + nodal factor per date) is mechanical astronomical math,
   fully specified in SP 98. Multiple independent open-source
   implementations (e.g. `pytides`) exist for the same reason.
-- MIT-licensed from the start, so the engine can be embedded anywhere —
-  App Store, other apps, other people's projects — with no copyleft
-  obligation on anyone downstream.
+- Dual MIT/Apache-2.0-licensed from the start, so the engine can be
+  embedded anywhere — App Store, Play Store, other apps, other people's
+  projects — with no copyleft obligation on anyone downstream.
+
+**Language: Rust, not per-platform reimplementation.** Once Android
+joined the roadmap, writing (and keeping in sync) an independent copy of
+the same math in Swift and Kotlin stopped being the best way to satisfy
+"freely reusable as a module in other projects" — a single Rust core is:
+
+- **Genuinely portable**: native compiled code on iOS/Android/desktop/
+  server, and can also target WebAssembly for browser/Node use later,
+  without rewriting the engine again.
+- **One implementation to validate and trust.** The hard-won correctness
+  work (constituent summation, equilibrium argument, nodal factors)
+  happens once, not twice, and regression tests only need writing once.
+- **Bindable, not just embeddable.** Tools like [UniFFI](https://mozilla.github.io/uniffi-rs/)
+  generate idiomatic Swift and Kotlin bindings directly from the Rust
+  crate, so each app calls it as a natural native API, not raw FFI.
+  `engine/Cargo.toml` already builds `staticlib`/`cdylib` outputs so
+  this is a drop-in step, not a restructure, once binding generation is
+  actually wired up.
+
+Lives at `engine/` (a plain Rust crate — `cargo build` / `cargo test`
+work today, no Xcode/Android Studio required, which is why this is the
+first thing laid out).
 
 ## Data pipeline: avoid depending on GPL tooling at runtime
 
@@ -45,32 +67,37 @@ engine GPL-free:
   (4,200+ global stations, CC BY 4.0), packaged as XTide-compatible TCD.
   For Canada specifically, CHS/DFO's own data (via tides.gc.ca / IWLS)
   may be a cleaner direct source — see `docs/DATA.md`.
+- Whatever format is chosen, `engine/` reads it directly with no
+  external crate dependency yet (see the `TideExtremum::unix_time_seconds`
+  TODO in `engine/src/extremum.rs` — a calendar-aware date crate will be
+  picked once the equilibrium-argument math is actually implemented).
 
 See `Data/stations/bc/README.md` for the concrete first-region pipeline.
 
-## App shell (next step)
+## App shells (next step)
 
-Not yet scaffolded in this repo. The `TidalEngine` package here is
-platform-agnostic (iOS 17+ / macOS 14+) and testable with `swift test`
-without Xcode, which is why it's the first thing laid out. The SwiftUI
-app itself (CoreLocation integration, tide chart UI, App target,
-entitlements, Info.plist) needs to be created as an Xcode project that
-depends on this package — that has to happen in Xcode locally, not in
-this environment. Planned shape, per the original idea capture:
+Neither app is scaffolded in this repo yet — both need Xcode / Android
+Studio locally, not available in this environment.
 
-- SwiftUI + CoreLocation for GPS.
-- App target adds `TidalEngine` as a local Swift package dependency.
-- Bundles converted station data (see `Data/`) as app resources.
-- No network calls in the core tide-chart flow.
+**iOS**: SwiftUI + CoreLocation. App target adds `engine/`'s generated
+Swift bindings as a dependency. Bundles converted station data (see
+`Data/`) as app resources. No network calls in the core tide-chart flow.
 
-MVP screen (0.3.0, see `docs/ROADMAP.md`): on open, show the device's
-current coordinates, then a chart of high/low tide for the nearest
-station across a 5-day window (yesterday, today, next 3 days). Depends
-on `HarmonicPredictor.extrema(from:to:)` — see `Sources/TidalEngine/HarmonicPredictor.swift` — for the high/low points themselves.
+**Android**: Kotlin + Jetpack Compose. App module adds `engine/`'s
+generated Kotlin (JNI) bindings as a dependency. Same data-bundling and
+offline-only approach as iOS.
+
+MVP screen (0.3.0, see `docs/ROADMAP.md`, iOS first): on open, show the
+device's current coordinates and the current time and water level, then
+a chart of high/low tide for the nearest station across a 5-day window
+(yesterday, today, next 3 days). Depends on
+`HarmonicPredictor::extrema` — see `engine/src/predictor.rs` — for the
+high/low points, and `HarmonicPredictor::water_level` for the current
+reading.
 
 Post-MVP feature order (see `docs/ROADMAP.md`): change location, change
-date, configurable day range, then a full continuous tidal graph (as
-opposed to the MVP's high/low-only chart).
+date, configurable day range, full continuous tidal graph (as opposed to
+the MVP's high/low-only chart), then the Android app.
 
 ## Open questions carried into the buildout
 
@@ -79,4 +106,8 @@ opposed to the MVP's high/low-only chart).
 - **License check** on TICON-4's underlying GESLA sources and on
   Canada's CHS/DFO data (described as "free under license," not flatly
   public domain like NOAA) before bundling either.
-- **Xcode app-target scaffolding** — needs to happen locally.
+- **Binding generation** — UniFFI is the leading candidate for Rust →
+  Swift/Kotlin bindings but hasn't been wired up or evaluated against
+  alternatives (e.g. hand-rolled `cbindgen` + JNI) yet.
+- **Xcode / Android Studio app-target scaffolding** — needs to happen
+  locally, on each respective platform's tooling.

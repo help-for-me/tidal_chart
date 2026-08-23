@@ -40,7 +40,7 @@ open question is whether to go through TCD (and if so, only as an
 offline/build-time conversion step, never at runtime) or source
 constituent data directly from each authority in a non-TCD format from
 the start. Whatever is chosen, the on-device format should be something
-`TidalEngine` can load directly (e.g. JSON or SQLite of `Station` +
+`engine/` can load directly (e.g. JSON or SQLite of `Station` +
 `Constituent` records) with no GPL tooling required at runtime.
 
 ## Layout
