@@ -1,9 +1,11 @@
 # Tidal Chart
 
-Offline-first iOS + Android app that predicts tides **on-device**: GPS
-finds the nearest tide station, then a local harmonic-method engine
-computes the prediction from bundled constituent data. No network
-dependency for the core tide-chart flow, no server-fetched predictions.
+Offline-first tide-prediction app targeting **iOS, Linux, macOS,
+Android, and Windows** (built and validated in that order): GPS (or,
+where GPS isn't available, a manually entered location) finds the
+nearest tide station, then a local harmonic-method engine computes the
+prediction from bundled constituent data. No network dependency for the
+core tide-chart flow, no server-fetched predictions.
 
 - Status: planning
 - Version: 0.0.0 (nothing built/tested yet)
@@ -17,46 +19,70 @@ same method (and public-domain formulas) national tide authorities use
 to publish predictions in the first place. Once station data is bundled,
 it works anywhere, indefinitely, with zero connectivity.
 
+## Platform order
+
+**iOS first** — that's where active development starts. Everything
+below it is built and validated in this order once iOS is working:
+
+1. **iOS**
+2. **Linux**
+3. **macOS**
+4. **Android**
+5. **Windows**
+
+Every tool and architecture decision (the engine, the data pipeline, the
+UI approach) is made with all five in mind from the start, not
+iOS-only decisions that get retrofitted later. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how each layer stays
+portable.
+
 ## Architecture at a glance
 
 - **Engine**: `engine/` — a single, original Rust implementation of the
   harmonic prediction method (public-domain formulas from NOAA Special
   Publication No. 98), not a GPL dependency. Rust so one implementation
-  can be shared as a native module across iOS, Android, and anywhere
-  else, via generated language bindings, rather than reimplementing the
-  math per platform. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-  for the reasoning.
+  is shared across every platform above — natively on desktop, via
+  generated bindings on mobile — rather than reimplementing the math
+  per platform. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for
+  the reasoning.
 - **Data**: harmonic constituent data per tide station, staged by region
   (see below), converted to an open format the engine reads. See
   [`docs/DATA.md`](docs/DATA.md).
 - **iOS app**: SwiftUI + CoreLocation, consuming `engine/` through
-  generated Swift bindings. Not yet scaffolded.
+  generated Swift bindings. Not yet scaffolded — first thing to build.
 - **Android app**: Kotlin + Jetpack Compose, consuming `engine/` through
   generated Kotlin bindings. Not yet scaffolded.
+- **Desktop app** (Linux/macOS/Windows): one shared Rust GUI (`egui`),
+  linking `engine/` directly — no bindings needed since both are Rust.
+  One codebase, validated on each OS in the order above. Not yet
+  scaffolded.
 
-Neither app is scaffolded yet — both need to happen locally (Xcode /
-Android Studio aren't available in this environment). See
+None of the four app shells are scaffolded yet — all need their
+respective toolchains locally (Xcode, Android Studio) except the
+desktop app, which can be built in this kind of environment. See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#app-shells-next-step) for
 what's next on each.
 
 ## MVP screen
 
-On open: show the device's current coordinates and the current time and
+On open: show the current location (coordinates via GPS on mobile;
+manually entered on desktop, which has no GPS) and the current time and
 water level, then a chart of high and low tide for the nearest station
 across a 5-day window — yesterday, today, and the next 3 days.
 
 ## Planned features (post-MVP)
 
-In rough priority order — see [`docs/ROADMAP.md`](docs/ROADMAP.md) for
-how these map to versions:
+In rough priority order, applied across platforms as each is reached —
+see [`docs/ROADMAP.md`](docs/ROADMAP.md) for how these map to versions:
 
-1. Change location (override GPS with a manually chosen station/place).
+1. Change location (override GPS with a manually chosen station/place —
+   already required as a baseline on desktop, this extends it to
+   mobile).
 2. Change date (view the tide window centered on a different date).
 3. Configure the range of days shown (the MVP's 5-day window becomes
    adjustable).
 4. Full tidal graph — a continuous water-level curve, not just
    high/low points.
-5. Android app (shares the Rust engine with iOS via generated bindings).
 
 ## Data scope roadmap
 

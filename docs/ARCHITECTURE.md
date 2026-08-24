@@ -76,28 +76,54 @@ See `Data/stations/bc/README.md` for the concrete first-region pipeline.
 
 ## App shells (next step)
 
-Neither app is scaffolded in this repo yet — both need Xcode / Android
-Studio locally, not available in this environment.
+Platform order is iOS → Linux → macOS → Android → Windows (see
+`docs/ROADMAP.md`), but every shell below is designed with all five in
+mind from the start — the point of the Rust engine and the shared
+desktop GUI is to not retrofit portability later.
 
-**iOS**: SwiftUI + CoreLocation. App target adds `engine/`'s generated
-Swift bindings as a dependency. Bundles converted station data (see
-`Data/`) as app resources. No network calls in the core tide-chart flow.
+**iOS** (first): SwiftUI + CoreLocation. App target adds `engine/`'s
+generated Swift bindings as a dependency. Bundles converted station data
+(see `Data/`) as app resources. No network calls in the core tide-chart
+flow. Not yet scaffolded — needs Xcode locally.
 
-**Android**: Kotlin + Jetpack Compose. App module adds `engine/`'s
-generated Kotlin (JNI) bindings as a dependency. Same data-bundling and
-offline-only approach as iOS.
+**Desktop — Linux, macOS, Windows** (one shared codebase, built once,
+validated on each OS in that order): [`egui`](https://github.com/emilk/egui)
++ `eframe`. Chosen over native-per-OS toolkits (GTK / AppKit / WinUI)
+specifically to avoid three separate UI codebases:
 
-MVP screen (0.3.0, see `docs/ROADMAP.md`, iOS first): on open, show the
-device's current coordinates and the current time and water level, then
-a chart of high/low tide for the nearest station across a 5-day window
-(yesterday, today, next 3 days). Depends on
-`HarmonicPredictor::extrema` — see `engine/src/predictor.rs` — for the
-high/low points, and `HarmonicPredictor::water_level` for the current
-reading.
+- Pure Rust, so it links `engine/` directly as a normal crate
+  dependency — no FFI, no generated bindings, unlike the mobile apps.
+- MIT/Apache-2.0 licensed, same as `engine/` — no GPL entanglement to
+  reason about, unlike e.g. Slint's GPL-licensed edition.
+- Ships [`egui_plot`](https://docs.rs/egui_plot) for charting, a direct
+  fit for the tidal graph feature.
+- **No GPS on desktop.** Unlike iOS/Android, there's no reliable
+  cross-platform desktop location API. The desktop MVP therefore needs
+  manual location entry as a baseline from day one — what's "change
+  location" (post-MVP) on mobile is *required* groundwork on desktop,
+  not an enhancement. This can build on whatever
+  `StationLocator`/location-selection UI gets built for that feature.
+
+Not yet scaffolded, but — unlike the mobile apps — buildable in an
+environment like this one (no Xcode/Android Studio dependency).
+
+**Android** (after the desktop platforms): Kotlin + Jetpack Compose.
+App module adds `engine/`'s generated Kotlin (JNI) bindings as a
+dependency. Same data-bundling and offline-only approach as iOS. Not
+yet scaffolded — needs Android Studio locally.
+
+MVP screen (see `docs/ROADMAP.md` for exact versions): on open, show the
+current location (GPS on mobile, manual entry on desktop) and the
+current time and water level, then a chart of high/low tide for the
+nearest station across a 5-day window (yesterday, today, next 3 days).
+Depends on `HarmonicPredictor::extrema` — see `engine/src/predictor.rs`
+— for the high/low points, and `HarmonicPredictor::water_level` for the
+current reading.
 
 Post-MVP feature order (see `docs/ROADMAP.md`): change location, change
 date, configurable day range, full continuous tidal graph (as opposed to
-the MVP's high/low-only chart), then the Android app.
+the MVP's high/low-only chart) — applied across platforms as each is
+reached, not iOS-only.
 
 ## Open questions carried into the buildout
 
@@ -108,6 +134,12 @@ the MVP's high/low-only chart), then the Android app.
   public domain like NOAA) before bundling either.
 - **Binding generation** — UniFFI is the leading candidate for Rust →
   Swift/Kotlin bindings but hasn't been wired up or evaluated against
-  alternatives (e.g. hand-rolled `cbindgen` + JNI) yet.
+  alternatives (e.g. hand-rolled `cbindgen` + JNI) yet. Desktop doesn't
+  need this at all (pure Rust, direct crate dependency).
 - **Xcode / Android Studio app-target scaffolding** — needs to happen
-  locally, on each respective platform's tooling.
+  locally, on each respective platform's tooling. The desktop app is the
+  one shell buildable in an environment like this one.
+- **Desktop location source** — manual entry is the confirmed baseline;
+  worth revisiting later whether OS-level location services (Windows
+  Location API, macOS Core Location, Linux GeoClue) are worth adding as
+  a convenience on top, not a blocker for any milestone.
