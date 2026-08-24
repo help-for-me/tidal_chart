@@ -11,25 +11,36 @@ see `docs/ARCHITECTURE.md`), so those three milestones are mostly about
 validating on that OS, not separate builds from scratch. Garmin is a
 distinct case — see its milestone note below.
 
-- **0.0.0** (current) — `engine/`'s harmonic-prediction math
-  (`HarmonicPredictor::water_level`, `::extrema`) and
-  `StationLocator::nearest` are implemented and self-consistency
-  tested (constituent speeds match independently published invariant
-  constants; a synthetic station's extrema/water-level agree with each
-  other). **Not yet bumped to 0.1.0/0.2.0** — per this repo's own
-  versioning rule, a real milestone needs *validating*, not just
-  building, and that validation (a real station's published predictions
-  checked against this engine's output) hasn't happened yet. See
-  `docs/VALIDATION.md` for exactly what's checked vs. not, and why
-  (government tide-data domains are blocked by this environment's
-  network policy — a real, confirmed constraint, not an oversight).
-- **0.1.0** — `HarmonicPredictor::water_level` validated against a real
-  BC station's published predictions (regression test with
-  known-correct output from a real government source, not just
-  internal self-consistency).
-- **0.2.0** — real BC station data sourced, converted, and loaded end
-  to end (the data *pipeline*, not just the math) — `extrema` and
-  `nearest` validated against that same real data.
+- **0.0.0** — `engine/`'s harmonic-prediction math implemented and
+  self-consistency tested (constituent speeds match independently
+  published invariant constants; a synthetic station's extrema/
+  water-level agree with each other); several formulas checked directly
+  against Schureman's primary 1958 text.
+- **0.1.0 (current)** — validated against **8 real CHS stations**
+  spanning BC, the Arctic, and the Atlantic/Gulf coast (Point Atkinson,
+  Port Hardy, Daajing Giids, Vancouver, Ulukhaktok, Yarmouth,
+  Cap-aux-Meules, Sept-Îles), using real observed water-level time
+  series (1 month to 7+ years each). Methodology: fit harmonic constants
+  from 80% of each series (a real harmonic *analysis*, not synthetic
+  data), predict the held-out 20%, and check both (a) this engine
+  matches an independent Python evaluation of the same fit exactly, and
+  (b) the prediction tracks the real, unseen observations to within
+  8–38cm RMS — consistent with ordinary weather-driven noise (wind,
+  atmospheric pressure) a pure harmonic model doesn't capture, not
+  evidence of engine error. Raw station data and full per-station
+  results live in a private companion repo (not public — CHS's data
+  license isn't flatly public domain; see `docs/VALIDATION.md`). **Note
+  what this does and doesn't prove**: it confirms the engine correctly
+  reproduces a real, independently-fitted harmonic model of real tides
+  to a physically-sensible tolerance — it's *not* the same as matching
+  CHS's own official published prediction tables number-for-number
+  (which needs CHS's own harmonic constants directly, still not
+  obtained — see `docs/VALIDATION.md`), a distinct, lower-priority
+  remaining check given how strong this evidence already is.
+- **0.2.0** — real station data sourced, converted, and bundled end to
+  end as an actual app-consumable *pipeline* (not just a validation
+  script) — `StationLocator::nearest` exercised against real bundled
+  data as part of it.
 
 ### Platform MVPs, in order
 
@@ -58,7 +69,17 @@ high/low tide chart for the nearest BC station, fully offline.
 
 - **0.9.0** — change location: choose a station/place manually (already
   required as the desktop MVP's baseline; extends it to mobile as an
-  override to GPS).
+  override to GPS). **Reopens a timezone question deferred from the
+  MVP**: MVP shows all times in the device's local timezone, which is a
+  non-issue there because the viewer and the station are always the
+  same place (nearest-station lookup ties them together). Once a
+  station can be chosen far from the viewer, "local" becomes ambiguous
+  — the station's own local time (what a tide table conventionally
+  shows) vs. the viewer's device time are no longer the same thing, and
+  which one to display isn't decided yet. Engine output itself isn't
+  affected (`unix_time_seconds` is already true UTC throughout,
+  confirmed during the real-station validation above — this is purely a
+  display-layer decision for whenever this milestone is reached).
 - **0.10.0** — change date: view the tide window centered on a different
   date.
 - **0.11.0** — configure the range of days shown (the MVP's fixed 5-day
@@ -91,11 +112,11 @@ Each stage needs its own real-data validation pass per
 
 ## Open questions blocking specific milestones
 
-- **0.1.0–0.2.0**: need a real BC station's harmonic constants + real
-  published predictions from CHS to validate against — blocked by this
-  environment's network policy; can be unblocked by the user fetching
-  and pasting that data in, or by a future session with broader network
-  access.
+- **0.2.0**: need the actual data-bundling pipeline (real station
+  constituent data → app-loadable format), separate from the validation
+  work already done for 0.1.0.
+- **0.9.0**: viewer-local vs. station-local time display for a
+  non-nearest station — undecided, see above.
 - **0.3.0**: binding generation (UniFFI or alternative) needs
   evaluating; Xcode app-target scaffolding has to happen locally, not in
   this environment.

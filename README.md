@@ -8,9 +8,11 @@ prediction from bundled constituent data. No network dependency for the
 core tide-chart flow, no server-fetched predictions.
 
 - Status: building
-- Version: 0.0.0 (engine math implemented and self-consistency tested;
-  not yet validated against a real station's published predictions —
-  see [`docs/VALIDATION.md`](docs/VALIDATION.md))
+- Version: 0.1.0 (engine validated against 8 real CHS stations'
+  observed water levels — see [`docs/VALIDATION.md`](docs/VALIDATION.md)
+  and [`docs/ROADMAP.md`](docs/ROADMAP.md) for exactly what that does
+  and doesn't cover; the app-side data pipeline for 0.2.0 is separate
+  and still open)
 
 ## Why on-device computation, not cached predictions
 

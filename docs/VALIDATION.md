@@ -52,7 +52,78 @@ thing, not that the thing they compute is right — only the primary text
 settles that, and in this specific case, settled it in the opposite
 direction from what the cross-check evidence alone suggested.
 
-**3. Live numeric cross-check against an independent implementation**
+**3. Validated against 8 real CHS stations' actual observed water
+levels** — the strongest check in this repo, and a materially different
+kind of evidence than the two above (both of which check the *machinery*
+against known-correct formulas/constants, not against real physical
+tides). The user provided real CHS water-level observation exports (not
+predictions, not harmonic constant tables — raw observed data) for 8
+stations spanning BC, the Arctic, and the Atlantic/Gulf coast: Point
+Atkinson, Port Hardy, Vancouver, Daajing Giids (all BC), Ulukhaktok
+(NWT, Arctic), Yarmouth (NS), Cap-aux-Meules and Sept-Îles (both QC).
+Series length ranged from 1 month (1-minute/15-minute resolution) to
+over 7 years (hourly).
+
+Methodology, per station:
+
+1. **Split 80/20** (chronologically — train on the earlier portion,
+   test on the later, never seen during fitting).
+2. **Fit real harmonic constants from the training portion** — a linear
+   least-squares harmonic *analysis* (the reverse of prediction; the
+   other half of Schureman's method) using pytides' verified `astro()`
+   and per-constituent `V`/`u`/`f` functions evaluated at each exact
+   timestamp (deliberately not pytides' `Tide.decompose()`/`Tide.at()`,
+   which have a real off-by-one bug at partition boundaries — hit
+   directly during this work — and use a batched/partitioned
+   approximation not needed here). Only constituents the series can
+   actually resolve were fit: first by requiring ≥2 full periods
+   (matching pytides' own rule), then by requiring every pair of
+   included constituents to be separable given the series length — S2
+   and K2, for instance, have a synodic period of ~183 days, so both
+   are effectively indistinguishable in a 30-day series and forcing
+   both into the fit produces an ill-conditioned, exploding result
+   (confirmed directly: naively including them gave nonsense RMS errors
+   of multiple meters; restricting to a pairwise-separable subset fixed
+   it). Standard harmonic-analysis practice (Schureman §150-152), not a
+   workaround.
+3. **Predict the held-out 20%** with those fitted constants, three ways:
+   this engine, an independent Python evaluation of the identical
+   model, and — the real test — the actual unseen observations.
+
+Results: **this engine matched the independent Python evaluation
+exactly** (0.0 difference, to the precision compared) on all 8 stations
+— stronger agreement than item 4 below, because this comparison, unlike
+pytides' own batching, evaluates every quantity at the exact instant on
+both sides, so there's no leftover approximation-strategy gap to
+account for. Against the real, unseen observations, RMS error ranged
+**7.8cm to 38.1cm** across the 8 stations (worst case: Vancouver, whose
+series was the sparsest and gappiest of the eight). That residual is
+consistent with ordinary non-tidal water-level variability (wind,
+atmospheric pressure, storm surge) that a pure equilibrium-harmonic
+model doesn't and isn't supposed to capture — not evidence of engine
+error.
+
+**What this does and doesn't prove**: it's real, out-of-sample evidence
+that the full engine — astro, species, nodal corrections, and the
+summation itself — correctly reproduces a real, independently-derived
+harmonic tidal model, checked against real physical observations, not
+just internal consistency or agreement with another implementation's
+formulas. It does *not* mean this engine's predictions have been
+checked against CHS's own official, published prediction tables or
+their own harmonic constants (a different, narrower, still-open check —
+CHS's own constants would need to be obtained separately, and would
+mostly confirm the *fitting* was accurate, since the *prediction*
+formula is already this same validated one).
+
+Full per-station results, the fitted constants, and the raw source data
+live in a **private companion repository**, not this one — CHS's data
+isn't flatly public domain (see `docs/DATA.md`), and the user was
+explicit this data isn't for commercial use, so it's kept out of this
+MIT/Apache-licensed public repo entirely. `engine/examples/real_station_check.rs`
+(the comparison harness itself — generic, takes a constants file and a
+held-out CSV as arguments, contains no station data) is public.
+
+**4. Live numeric cross-check against an independent implementation**
 (`engine/tests/pytides_cross_check.rs`) — installed and ran
 [pytides](https://github.com/sam-cox/pytides) live (Python 3, via the
 [`drf5n/pytides` `py3_v2`](https://github.com/drf5n/pytides/tree/py3_v2)
@@ -101,7 +172,7 @@ run --example cross_check -- water_level <start_unix> <hours>` or
 same CSV shape used above, against the same synthetic all-23-species
 station, for regenerating golden values against a fresh pytides run.
 
-**4. Internal consistency of the whole pipeline**, via a synthetic
+**5. Internal consistency of the whole pipeline**, via a synthetic
 single-constituent (M2-only) station in `engine/src/predictor.rs`'s
 tests: extrema alternate High/Low, are spaced ~6.21 hours apart (half
 the M2 period), and `water_level()` at each reported extremum time
@@ -131,17 +202,21 @@ read the equation, compare) is the way to close the rest of this gap.
 
 ## What's NOT validated yet — and why
 
-**No real station's published high/low predictions have been checked
-against `engine/`'s output.** This is a different, larger gap than the
-formula-level checks above close: those checks prove this engine
-computes the harmonic *method* correctly; they say nothing about whether
-real government-published harmonic constants for an actual station, fed
-through this engine, reproduce that station's actual published tide
-times. Only real station data answers that.
+**This engine's predictions haven't been checked against CHS's own
+official published prediction tables or their own harmonic constants.**
+Item 3 above closes the larger, more important version of this gap —
+real observed data, real out-of-sample accuracy — but it used harmonic
+constants *derived from* observations, not CHS's own published
+constants. Checking against CHS's own numbers directly would mostly
+confirm the fitting step (item 3's harmonic analysis) rather than the
+prediction engine itself, since the prediction formula is the same one
+already validated — lower priority now than it was before item 3
+existed, but still open.
 
-This gap exists because **this environment's network egress proxy
-blocks direct access to most general web domains** — confirmed by
-testing several very different ones directly, not assumed:
+This remains blocked the same way it always was: **this environment's
+network egress proxy blocks direct access to most general web
+domains** — confirmed by testing several very different ones directly,
+not assumed:
 
 ```
 gateway answered 403 to CONNECT (policy denial or upstream failure)
