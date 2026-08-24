@@ -12,10 +12,13 @@
 //! Swift/Kotlin. See `docs/ARCHITECTURE.md` in the repo root for the
 //! binding strategy.
 
+mod astro;
 mod constituent;
 mod extremum;
 mod locator;
+mod nodal;
 mod predictor;
+mod species;
 mod station;
 
 pub use constituent::Constituent;

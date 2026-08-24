@@ -43,7 +43,11 @@ the same math in Swift and Kotlin stopped being the best way to satisfy
 
 Lives at `engine/` (a plain Rust crate — `cargo build` / `cargo test`
 work today, no Xcode/Android Studio required, which is why this is the
-first thing laid out).
+first thing laid out). `water_level`, `extrema`, and `StationLocator::nearest`
+are implemented (`astro.rs`, `nodal.rs`, `species.rs`, `predictor.rs`,
+`locator.rs`) and pass self-consistency tests — see `docs/VALIDATION.md`
+for exactly what that does and doesn't confirm (real published-prediction
+validation is still open, blocked by this environment's network policy).
 
 ## Data pipeline: avoid depending on GPL tooling at runtime
 
@@ -68,9 +72,9 @@ engine GPL-free:
   For Canada specifically, CHS/DFO's own data (via tides.gc.ca / IWLS)
   may be a cleaner direct source — see `docs/DATA.md`.
 - Whatever format is chosen, `engine/` reads it directly with no
-  external crate dependency yet (see the `TideExtremum::unix_time_seconds`
-  TODO in `engine/src/extremum.rs` — a calendar-aware date crate will be
-  picked once the equilibrium-argument math is actually implemented).
+  external crate dependency — the equilibrium-argument math (now
+  implemented, see `engine/src/astro.rs`) turned out to need only plain
+  Unix timestamps, not a calendar-aware date type.
 
 See `Data/stations/bc/README.md` for the concrete first-region pipeline.
 
@@ -112,6 +116,26 @@ App module adds `engine/`'s generated Kotlin (JNI) bindings as a
 dependency. Same data-bundling and offline-only approach as iOS. Not
 yet scaffolded — needs Android Studio locally.
 
+**Garmin** (after Windows): a real exception to "one Rust engine
+everywhere." Connect IQ, Garmin's watch app platform, runs Monkey C —
+there's no Rust toolchain targeting it, so `engine/` can't be linked or
+bound to it the way the other five platforms do. Two real options, not
+yet decided:
+
+1. **Phone computes, watch displays** — the already-built iOS/Android
+   app runs `engine/` as normal and pushes computed high/low tide data
+   to the paired watch via Connect IQ's companion-app data transfer.
+   Standard shape for Garmin apps needing real computation (most
+   Garmin tide/weather apps work this way) — no engine duplication, but
+   the watch app needs its phone paired to get fresh data.
+2. **Monkey C port** — reimplement the harmonic math a third time,
+   directly in Monkey C. Works standalone (no phone needed), but means
+   a third codebase to keep correct and in sync with `engine/`, working
+   against the whole point of the single Rust core.
+
+Defaults to option 1 unless standalone (no-phone) operation turns out to
+matter — revisit when this milestone is actually reached.
+
 MVP screen (see `docs/ROADMAP.md` for exact versions): on open, show the
 current location (GPS on mobile, manual entry on desktop) and the
 current time and water level, then a chart of high/low tide for the
@@ -122,8 +146,40 @@ current reading.
 
 Post-MVP feature order (see `docs/ROADMAP.md`): change location, change
 date, configurable day range, full continuous tidal graph (as opposed to
-the MVP's high/low-only chart) — applied across platforms as each is
-reached, not iOS-only.
+the MVP's high/low-only chart), sunrise/sunset + moon phase — applied
+across platforms as each is reached, not iOS-only.
+
+## Sunrise/sunset and moon phase (post-MVP feature)
+
+Both are genuinely related to the tide engine, not just "also
+astronomy": moon phase and the spring/neap tide cycle share the same
+underlying cause — how aligned the sun and moon are (syzygy at new/full
+moon = spring tides; quarter moons, sun and moon at right angles = neap
+tides). Practically:
+
+- **Moon phase** ≈ a function of the angular separation between the
+  moon's and sun's longitudes — `engine/src/astro.rs` already computes
+  both as mean longitudes (`s` and `h`) for the harmonic method, so a
+  first-pass phase indicator can reuse them directly rather than adding
+  a separate calculation. (Mean longitude is an approximation — the true
+  apparent longitude differs by the "equation of center," which can
+  shift the exact new/full moon instant by up to roughly a day — fine
+  for a phase *indicator*, not for pinpointing the exact moment.)
+- **Sunrise/sunset** needs formulas not yet in `astro.rs` (solar
+  declination and the hour-angle-based rise/set time, given the
+  station's latitude), from the same Meeus/public-domain family as the
+  rest of the engine, so it's a natural sibling module, not a new
+  approach.
+
+Not implemented yet — this is roadmap groundwork for when that milestone
+(`docs/ROADMAP.md` 0.13.0) is reached, not a claim that it works today.
+
+## Garmin (post-Windows platform)
+
+Real exception to "one engine everywhere" — see the "App shells" Garmin
+entry above for the two options (phone-computes-and-syncs vs. a Monkey C
+port) and why Connect IQ can't just link `engine/` like the other five
+targets.
 
 ## Open questions carried into the buildout
 
@@ -143,3 +199,9 @@ reached, not iOS-only.
   worth revisiting later whether OS-level location services (Windows
   Location API, macOS Core Location, Linux GeoClue) are worth adding as
   a convenience on top, not a blocker for any milestone.
+- **Real-data validation** — `engine/`'s math is implemented and
+  self-consistency tested, but not yet checked against any real
+  station's published predictions (government tide-data domains are
+  blocked by this environment's network policy). See
+  `docs/VALIDATION.md` for exactly what's needed and how to unblock it.
+- **Garmin phone-sync vs. Monkey C port** — undecided, see above.

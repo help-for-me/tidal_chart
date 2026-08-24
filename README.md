@@ -7,8 +7,10 @@ nearest tide station, then a local harmonic-method engine computes the
 prediction from bundled constituent data. No network dependency for the
 core tide-chart flow, no server-fetched predictions.
 
-- Status: planning
-- Version: 0.0.0 (nothing built/tested yet)
+- Status: building
+- Version: 0.0.0 (engine math implemented and self-consistency tested;
+  not yet validated against a real station's published predictions —
+  see [`docs/VALIDATION.md`](docs/VALIDATION.md))
 
 ## Why on-device computation, not cached predictions
 
@@ -29,6 +31,7 @@ below it is built and validated in this order once iOS is working:
 3. **macOS**
 4. **Android**
 5. **Windows**
+6. **Garmin** (wearables — after Windows)
 
 Every tool and architecture decision (the engine, the data pipeline, the
 UI approach) is made with all five in mind from the start, not
@@ -83,6 +86,12 @@ see [`docs/ROADMAP.md`](docs/ROADMAP.md) for how these map to versions:
    adjustable).
 4. Full tidal graph — a continuous water-level curve, not just
    high/low points.
+5. Sunrise/sunset times and moon phase, shown alongside the tide chart.
+   Moon phase and tides are genuinely connected (new/full moon —
+   syzygy, sun and moon aligned — means spring tides; quarter moons mean
+   neap tides), and moon phase can reuse `engine/`'s existing
+   astronomical elements (the sun's and moon's mean longitudes) rather
+   than needing a separate calculation from scratch.
 
 ## Data scope roadmap
 
@@ -103,13 +112,19 @@ engine/                 Core prediction engine (Rust crate, no UI)
   src/                   Library source
   tests/                 Integration tests
 Data/stations/          Per-region harmonic constituent data
-docs/                    Architecture, data pipeline, and roadmap notes
+docs/                    Architecture, data pipeline, roadmap, and validation notes
 ```
 
 ## Status
 
-This repo currently holds groundwork only: package layout, type shells,
-docs, and CI — no working prediction logic yet. See
+`engine/`'s harmonic-prediction math (`water_level`, `extrema`) and
+nearest-station lookup are implemented and tested — see
+[`docs/VALIDATION.md`](docs/VALIDATION.md) for exactly what's been
+checked (constituent speeds against independently published invariant
+constants, and internal pipeline consistency) versus what hasn't (a
+real station's published predictions — blocked in this environment by
+network policy, not yet done anywhere). No app shell is scaffolded yet
+and no real station data is bundled. See
 [`docs/ROADMAP.md`](docs/ROADMAP.md) for the planned build order.
 
 ## License
