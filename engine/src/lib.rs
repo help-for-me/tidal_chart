@@ -14,6 +14,7 @@
 
 mod astro;
 mod constituent;
+mod data;
 mod extremum;
 mod locator;
 mod nodal;
@@ -22,6 +23,7 @@ mod species;
 mod station;
 
 pub use constituent::Constituent;
+pub use data::{parse_station, ParseStationError};
 pub use extremum::{TideExtremum, TideExtremumKind};
 pub use locator::StationLocator;
 pub use predictor::HarmonicPredictor;
