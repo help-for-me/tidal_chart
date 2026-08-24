@@ -1,25 +1,30 @@
 //! Cross-check against [pytides](https://github.com/sam-cox/pytides)
 //! (MIT-licensed), an independent Python implementation of the same
 //! harmonic method — run live and compared numerically, not just read
-//! for reference. See `docs/VALIDATION.md` for the full methodology
-//! and how this caught a real bug (a wrong nodal-correction constant
-//! for K2, `0.2523` vs the correct `0.2533`, inherited when porting
-//! from pytides' upstream `master` branch — fixed in `nodal.rs::f_k2`
-//! after this cross-check's disagreement pointed straight at it).
+//! for reference. See `docs/VALIDATION.md` for the full methodology,
+//! including how this and a direct check against Schureman's actual
+//! 1958 text together found and fixed two real issues: `f_k1`/`f_k2`
+//! stayed correct throughout, but `f_m1` had a genuine wrong-exponent
+//! bug shared with both pytides variants (so this comparison alone
+//! couldn't have caught it — only the primary text could, and did —
+//! see `nodal.rs::f_m1`'s comment), and an earlier attempt to "fix"
+//! `f_k2` based on disagreement with a buggy pytides fork was itself
+//! wrong and has been reverted (see `nodal.rs::f_k2`'s comment).
 //!
 //! Golden values below are pytides' output (the `drf5n/pytides` `py3_v2`
-//! Python 3 fork, with its `at()`/`extrema()` partition size reduced
-//! from the default 240 hours to 0.05 hours so nodal corrections are
-//! evaluated at each instant rather than held constant across a
-//! multi-day block — that partitioning is a deliberate, documented
-//! pytides performance optimization, not a claim of exactness, so
-//! comparing against it at pytides' default coarseness would be
-//! comparing against a different, less precise computation than this
-//! engine's, not a fair correctness check) for a synthetic station
-//! using all 23 constituent species this engine implements, each at
-//! amplitude 1.0 / phase 0.0 — not real station data, just a shared
-//! fixture exercising every species' nodal corrections at once. Full
-//! run: 2026-08-24T00:00:00Z, one week hourly, all 23 species; max
+//! Python 3 fork, patched to match Schureman's actual text for `f_k2`
+//! and `f_m1` — see `docs/VALIDATION.md` — with its `at()`/`extrema()`
+//! partition size reduced from the default 240 hours to 0.05 hours so
+//! nodal corrections are evaluated at each instant rather than held
+//! constant across a multi-day block — that partitioning is a
+//! deliberate, documented pytides performance optimization, not a claim
+//! of exactness, so comparing against it at pytides' default coarseness
+//! would be comparing against a different, less precise computation
+//! than this engine's, not a fair correctness check) for a synthetic
+//! station using all 23 constituent species this engine implements,
+//! each at amplitude 1.0 / phase 0.0 — not real station data, just a
+//! shared fixture exercising every species' nodal corrections at once.
+//! Full run: 2026-08-24T00:00:00Z, one week hourly, all 23 species; max
 //! absolute water_level disagreement 7e-6, mean 3e-6. The tolerance
 //! below leaves an order of magnitude of margin over that.
 
@@ -53,21 +58,21 @@ fn water_level_matches_pytides() {
 
     // (unix_time_seconds, pytides water_level)
     let golden: &[(i64, f64)] = &[
-        (1787529600, -0.3191824191),
-        (1787569200, 4.406874251),
-        (1787608800, 2.89483794),
-        (1787648400, 0.9230364742),
-        (1787688000, -1.689432763),
-        (1787727600, -1.700745956),
-        (1787767200, -2.415574203),
-        (1787806800, -3.361093348),
-        (1787846400, 3.093242172),
-        (1787886000, -2.525745101),
-        (1787925600, 5.141721186),
-        (1787965200, 1.07280754),
-        (1788004800, 6.901220239),
-        (1788044400, 2.931238512),
-        (1788084000, 7.491716829),
+        (1787529600, -0.343260825),
+        (1787569200, 4.439108292),
+        (1787608800, 2.857281716),
+        (1787648400, 0.9625407123),
+        (1787688000, -1.722253267),
+        (1787727600, -1.673756079),
+        (1787767200, -2.428247694),
+        (1787806800, -3.360433309),
+        (1787846400, 3.106386465),
+        (1787886000, -2.551909811),
+        (1787925600, 5.174321078),
+        (1787965200, 1.033068722),
+        (1788004800, 6.93790877),
+        (1788044400, 2.89802971),
+        (1788084000, 7.515079291),
     ];
 
     for (unix_time, expected) in golden {
@@ -88,11 +93,9 @@ fn water_level_matches_pytides() {
 /// extremum the curve is locally flat (derivative is zero there by
 /// definition), so a several-minute timing difference should only
 /// produce a small height difference, not a proportionally large one —
-/// which is exactly what's observed (worst case in this fixture: ~7
-/// minutes apart, ~0.005 height difference) — so extrema get a looser
-/// time-matching window and height tolerance than the same-instant
-/// `water_level_matches_pytides` check above, which is the stricter,
-/// primary comparison.
+/// so extrema get a looser time-matching window and height tolerance
+/// than the same-instant `water_level_matches_pytides` check above,
+/// which is the stricter, primary comparison.
 const EXTREMA_TIME_WINDOW_SECONDS: i64 = 900;
 const EXTREMA_HEIGHT_TOLERANCE: f64 = 0.01;
 
@@ -103,12 +106,12 @@ fn extrema_match_pytides() {
     // (unix_time_seconds, pytides height, kind) - a sample spanning the
     // same week as the water_level golden values above.
     let golden: &[(i64, f64, TideExtremumKind)] = &[
-        (1787545157, -8.0693377230, TideExtremumKind::Low),
-        (1787573301, 5.2710451010, TideExtremumKind::High),
-        (1787716969, -5.4145362475, TideExtremumKind::Low),
-        (1787913993, 7.5222202377, TideExtremumKind::High),
-        (1788086548, 7.8752786854, TideExtremumKind::High),
-        (1788108331, -1.2026867034, TideExtremumKind::Low),
+        (1787545125, -8.0518928410, TideExtremumKind::Low),
+        (1787573280, 5.2954200548, TideExtremumKind::High),
+        (1787716937, -5.4156880400, TideExtremumKind::Low),
+        (1787913995, 7.5587163436, TideExtremumKind::High),
+        (1788086558, 7.9032692787, TideExtremumKind::High),
+        (1788108363, -1.1756782614, TideExtremumKind::Low),
     ];
 
     let extrema = predictor.extrema(1_787_529_600, 1_787_529_600 + 7 * 86_400);

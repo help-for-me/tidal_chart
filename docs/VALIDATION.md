@@ -17,20 +17,51 @@ K2 = 30.0821373°/hr, Q1 = 13.3986609°/hr, P1 = 14.9589314°/hr). These
 are physical constants (derived from the Earth/Moon/Sun's actual orbital
 rates), not station-specific data, and don't depend on network access.
 
-**2. Live numeric cross-check against an independent implementation**
-(`engine/tests/pytides_cross_check.rs`) — the strongest check in this
-repo so far, and the one that actually found and fixed a real bug.
-Rather than just reading [pytides](https://github.com/sam-cox/pytides)'
-source once and porting formulas by eye (which is all the original
-citations amounted to — see below), pytides was **installed and run
-live** (Python 3, via the
+**2. Six formulas checked directly against Schureman's actual 1958
+text** — `f_k1`, `u_k1` (via `nup`), `f_k2`, `u_k2` (via `nupp`), `f_l2`,
+`u_l2`, and `u_m1` (equations 195, 202, 213, 214, 223, 224, 227, 232,
+234, 235) — all confirmed to match exactly. **One, `f_m1`, was found
+wrong and fixed**: both pytides variants (and this engine, which had
+ported from them) had `cos(0.5*I)` raised to the `-0.5` power in one
+term; Schureman's actual equation 195 requires `-2`, not `-0.5` — a real
+bug, not a citation-strength technicality, and one the live pytides
+cross-check below could never have caught, because pytides has the same
+bug (see `nodal.rs::f_m1`'s comment for the full detail).
+
+How this happened: `docs/VALIDATION.md`'s original version said checking
+the primary text wasn't possible in this environment (the government/
+archive.org domains that host it are blocked — see below). That was
+true for *those* copies, but a scanned copy of Schureman 1958 turned out
+to be bundled directly in a GitHub repository
+([`JacksonKearl/solunar`](https://github.com/JacksonKearl/solunar)),
+reachable the same way pytides' source was. `poppler-utils` and
+`tesseract` were installed via `apt` to work with it; OCR across all 336
+pages turned out to be impractically slow in this environment, so
+specific pages were instead viewed directly (image rendering + reading
+the equations off the page) once the right page range was located by
+sampling.
+
+**This also caught a mistake made earlier in this same session**: an
+initial cross-check disagreement in `f_k2` was "fixed" by changing this
+engine's `0.2523` to `0.2533`, matching the `drf5n` Python-3 pytides
+fork more closely. That was backwards — Schureman's actual equation 235
+confirms `0.2523` is correct; the `drf5n` fork has the error, not
+`sam-cox/pytides`'s original. **Reverted.** The lesson generalizes:
+agreement between two implementations proves they compute the same
+thing, not that the thing they compute is right — only the primary text
+settles that, and in this specific case, settled it in the opposite
+direction from what the cross-check evidence alone suggested.
+
+**3. Live numeric cross-check against an independent implementation**
+(`engine/tests/pytides_cross_check.rs`) — installed and ran
+[pytides](https://github.com/sam-cox/pytides) live (Python 3, via the
 [`drf5n/pytides` `py3_v2`](https://github.com/drf5n/pytides/tree/py3_v2)
-fork — the original doesn't run on Python 3 as-is) against a synthetic
+fork — the original doesn't run on Python 3 as-is), rather than just
+reading its source once and porting formulas by eye, against a synthetic
 23-constituent station (every species this engine implements, amplitude
 1.0/phase 0.0 each — not real station data, just a shared fixture
-exercising every nodal-correction formula at once), and its output
-compared directly against this engine's, for one week hourly starting
-2026-08-24T00:00:00Z:
+exercising every nodal-correction formula at once), for one week hourly
+starting 2026-08-24T00:00:00Z:
 
 - **First pass**: max disagreement 0.026, out of a synthetic curve
   ranging roughly ±10. Root cause: pytides deliberately holds nodal
@@ -42,26 +73,18 @@ compared directly against this engine's, for one week hourly starting
   0.0014 max / 0.0009 mean — confirming the first-pass gap was that
   known approximation difference, not a formula bug.
 - **Second pass, with instant-accurate pytides**: a max disagreement of
-  0.0014 remained — small, but not the floating-point-noise-level
-  agreement expected between two implementations of the same public
-  formulas. Investigating traced it to `nodal.rs::f_k2`'s first
-  coefficient: this codebase had `0.2523` (from
-  [`sam-cox/pytides`](https://github.com/sam-cox/pytides)'s `master`
-  branch, `nodal_corrections.py`), but the `drf5n` Python-3 fork has
-  `0.2533` instead — **the two "reference" copies of pytides disagree
-  with each other**, meaning at least one has an error. Switching this
-  engine to `0.2533` dropped the disagreement to **7×10⁻⁶ max, 3×10⁻⁶
-  mean** — essentially floating-point-level agreement across all 23
-  constituents over a full week. That's about as strong evidence as
-  "0.2533 is correct, 0.2523 was wrong" gets without the primary
-  Schureman text in hand (see the citation gap below) — **fixed in
-  `nodal.rs`**, and the discovery process is preserved in this file and
-  in `nodal.rs`'s comment on `f_k2` rather than silently corrected.
+  0.0014 remained, traced (incorrectly, see above) to `f_k2`.
+- **After the primary-text check above** (`f_k2` reverted to `0.2523`,
+  `f_m1` fixed to the `-2` exponent, and the local pytides copy patched
+  to match on both so it's comparing two now-correct implementations):
+  **7×10⁻⁶ max, 3×10⁻⁶ mean** disagreement — essentially
+  floating-point-level agreement across all 23 constituents over a full
+  week.
 - Extrema (`HarmonicPredictor::extrema`) were checked the same way:
   times agree within a few minutes (expected — pytides finds them via
   scipy's Newton's-method solver, this engine via bisection to
   1-second precision; different root-finding methods land on different
-  seconds), heights within ~0.005 at those slightly-different times
+  seconds), heights within ~0.01 at those slightly-different times
   (consistent with the curve being locally flat right at an extremum —
   see the comment on `EXTREMA_TIME_WINDOW_SECONDS` in the test file for
   the reasoning).
@@ -78,51 +101,54 @@ run --example cross_check -- water_level <start_unix> <hours>` or
 same CSV shape used above, against the same synthetic all-23-species
 station, for regenerating golden values against a fresh pytides run.
 
-**3. Internal consistency of the whole pipeline**, via a synthetic
+**4. Internal consistency of the whole pipeline**, via a synthetic
 single-constituent (M2-only) station in `engine/src/predictor.rs`'s
 tests: extrema alternate High/Low, are spaced ~6.21 hours apart (half
 the M2 period), and `water_level()` at each reported extremum time
 matches the extremum's own reported height.
 
-## What's cited, and how strong that citation actually is
+## What's cited, and how strong that citation actually is — updated
 
 `astro.rs`/`nodal.rs`/`species.rs` cite Meeus's *Astronomical Algorithms*
 (by formula number) and Schureman's NOAA Special Publication No. 98 (by
-equation number) — see [Bibliography](#bibliography). **Those citations
-were not independently confirmed against the primary texts.** What
-actually happened: pytides' source (which itself cites Meeus/Schureman
-at those same equation numbers) was fetched and read verbatim from
-GitHub, and the formulas/coefficients were ported into original Rust
-code, keeping its citations. So the equation numbers here are **pytides'
-attribution, carried forward** — and the K2 finding above is direct,
-concrete proof that this carries real risk: pytides' own two variants
-disagreed with each other on one constant. The live cross-check catches
-disagreements *between implementations*; it can't catch a mistake both
-implementations happen to share. Only checking against Schureman's
-actual text closes that residual gap — see the Bibliography entry for
-how to do that once the primary text is available.
+equation number) — see [Bibliography](#bibliography). **Seven formulas
+(the K1/K2/L2 pair and `u_m1`) are now confirmed directly against
+Schureman's primary text; `f_m1` was checked and found wrong, then
+fixed; everything else in `nodal.rs` and all of `astro.rs`'s Meeus
+citations are still only pytides' attribution, carried forward when its
+source was ported, not independently confirmed.** The remaining
+unchecked formulas (`f_mm`, `f_mf`, `f_o1`/`u_o1`, `f_j1`/`u_j1`,
+`f_oo1`/`u_oo1`, `f_m2`/`u_m2`, `f_modd`/`u_modd`, and all of `astro.rs`)
+are simpler, single-term expressions than the K1/K2/L2/M1 group (which
+are special specifically because each combines two nearly-equal-speed
+terms — exactly the kind of derivation that produced the `f_m1` bug),
+so they're lower-risk, but "lower-risk" isn't "confirmed." The live
+pytides cross-check catches disagreements *between implementations*; it
+provably cannot catch a mistake both implementations share, which is
+exactly what happened with `f_m1` — only the primary text caught that
+one. Checking the remaining formulas the same way (locate the page,
+read the equation, compare) is the way to close the rest of this gap.
 
 ## What's NOT validated yet — and why
 
 **No real station's published high/low predictions have been checked
 against `engine/`'s output.** This is a different, larger gap than the
-pytides cross-check above closes: that check proves this engine
-computes the harmonic *method* the way another real implementation
-does; it says nothing about whether real government-published harmonic
-constants for an actual station, fed through this engine, reproduce
-that station's actual published tide times. Only real station data
-answers that.
+formula-level checks above close: those checks prove this engine
+computes the harmonic *method* correctly; they say nothing about whether
+real government-published harmonic constants for an actual station, fed
+through this engine, reproduce that station's actual published tide
+times. Only real station data answers that.
 
 This gap exists because **this environment's network egress proxy
-blocks direct access to essentially all general web domains** —
-confirmed by testing several very different ones directly, not assumed:
+blocks direct access to most general web domains** — confirmed by
+testing several very different ones directly, not assumed:
 
 ```
 gateway answered 403 to CONNECT (policy denial or upstream failure)
   host: www.tides.gc.ca:443            (Canada, CHS/DFO)
   host: api-iwls.dfo-mpo.gc.ca:443     (Canada, CHS/DFO)
   host: api.tidesandcurrents.noaa.gov:443  (US, NOAA)
-  host: archive.org:443                 (has the actual Schureman SP-98 scan)
+  host: archive.org:443
   host: en.wikipedia.org:443
 ```
 
@@ -130,23 +156,23 @@ It allowlists a narrow set of code-hosting and package-registry domains
 (`github.com`, `raw.githubusercontent.com`, `registry.npmjs.org`,
 `pypi.org`, `index.crates.io`, a few others — the full list is in the
 proxy's own `noProxy` config) and blocks everything else at the policy
-level — not specific to government sites, which is how this doc
-originally (too narrowly) described it. `WebSearch` still works because
-it doesn't route through this local proxy — it returns summarized
-results from Anthropic's own search backend, which is how the
-archive.org copy of SP-98 and the `pyTMD`/`drf5n` repositories were
-*found* even though most of them couldn't be *fetched* directly (GitHub
-raw content was the exception — reachable, and how the pytides
-cross-check above became possible at all).
+level — not specific to government sites. **This is why the primary
+Schureman text was reachable at all**: not from archive.org or NOAA's
+own PDF (both blocked, as shown above), but because someone had
+committed a scanned copy directly into a GitHub repository, and GitHub
+is allowlisted. `WebSearch` also works because it doesn't route through
+this local proxy — it returns summarized results from Anthropic's own
+search backend, which is how that repository and `pyTMD` were *found*.
 
-Practical effect: this environment can (a) read and run real source
-code from GitHub/PyPI, and (b) check output against independently
-well-known constants recalled directly. It cannot fetch a primary
-document (a government tide-data API, a scanned 1940s book, even
-Wikipedia) to check a citation or pull real station data. Both
-remaining gaps need the user to fetch and paste in the actual content —
-a real BC station's data, or the relevant SP-98 pages — or a future
-session with broader network access.
+Practical effect: this environment can read and run real source code
+and data from GitHub/PyPI (which turned out to include a primary
+19th/20th-century government document, once one was found hosted
+there), and can check output against independently well-known constants
+recalled directly. It generally cannot fetch content from most other
+web domains — government APIs for real station data being the
+remaining, and larger, gap. That needs the user to fetch and paste in
+the actual content — a real BC station's data — or a future session
+with broader network access.
 
 ## The validation process (bake this in per region)
 
@@ -185,48 +211,56 @@ than assuming one global source suffices.
 
 ## Bibliography
 
-**Primary formula sources** (not yet independently confirmed against —
-see above; cited here because they're what pytides itself cites, and
-what this engine's code comments cite by formula/equation number):
+**Primary formula sources:**
 
 - Meeus, Jean. *Astronomical Algorithms*, 2nd ed. Willmann-Bell, 1998.
   Formulas cited in `engine/src/astro.rs`: 7.1 (Julian Day), 11.1
   (Julian centuries), 21.3 (mean obliquity), 24.2 (solar longitude),
-  45.1 (lunar longitude), 45.7 (lunar node).
+  45.1 (lunar longitude), 45.7 (lunar node). **Not yet independently
+  confirmed against this primary text** — unlike Schureman below, no
+  accessible copy has been located yet.
 - Schureman, Paul. *Manual of Harmonic Analysis and Prediction of
   Tides.* U.S. Coast and Geodetic Survey Special Publication No. 98,
   1940 (revised, reprinted with corrections 1958). Public domain (U.S.
   government work). Equation numbers cited in `engine/src/nodal.rs`:
   65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 78, 149, 195, 202, 204,
   206, 207, 213, 214, 215, 224, 226, 227, 232, 234, 235; Tables 2 and 6.
-  A public-domain scan exists at
-  [archive.org](https://archive.org/details/manualofharmonic00schu)
-  (found via search; not fetchable from this environment — see above).
-  A PDF is also referenced at NOAA's own
-  [tidesandcurrents.noaa.gov/publications/SpecialPubNo98.pdf](https://tidesandcurrents.noaa.gov/publications/SpecialPubNo98.pdf)
-  (same access constraint).
+  **Directly consulted**: a scanned copy (336 pages) was obtained from
+  [`github.com/JacksonKearl/solunar`](https://github.com/JacksonKearl/solunar)'s
+  `Schureman1958.pdf` (raw.githubusercontent.com, not archive.org or
+  NOAA's own copy — both blocked, see above); equations 195, 202, 210-
+  235 (pp. 41-48, covering L2/M1/K1/K2) were read directly and compared
+  against `nodal.rs` — see "What's validated today" above for what
+  matched and what didn't. Equations 65-78 (Mm/Mf/O1/J1/OO1/M2) were
+  not located in this pass — they don't appear to get Schureman's own
+  dedicated derivation the way K1/K2/L2/M1 do (those four are singled
+  out specifically because each combines two nearly-equal-speed terms),
+  so the citation numbers pytides carries for them are unconfirmed
+  guesses at this book's actual structure, not verified page references.
+  The same repository also has `Zetler1982.pdf` ("Extensions of Tidal
+  Prediction Tables to Include Shallow Water Constituents"), unused so
+  far but a candidate source once compound/shallow-water constituents
+  are added.
 
-**Reference implementation, consulted and run live** (see "What's
-validated today" above for exactly how each was used):
+**Reference implementations, consulted and run live:**
 
 - Cox, Sam. `pytides`. MIT License.
   [github.com/sam-cox/pytides](https://github.com/sam-cox/pytides) —
   source read verbatim and ported from (not copied — original Rust code
   written from the same Meeus/Schureman formulas pytides also
-  implements); its `nodal_corrections.py` has `f_K2`'s first coefficient
-  as `0.2523`, which this engine inherited and later found to disagree
-  with the fork below.
+  implements). Its `f_K2` (`0.2523`) and `f_M1` (the buggy `-0.5`
+  exponent) match Schureman's actual text and this engine's code exactly
+  for the former; both it and the fork below share the latter's bug.
 - `drf5n`. `pytides`, `py3_v2` branch (Python 3 port of the above).
   [github.com/drf5n/pytides/tree/py3_v2](https://github.com/drf5n/pytides/tree/py3_v2)
   — installed and run live for the cross-check in
-  `engine/tests/pytides_cross_check.rs`. Its `f_K2` has `0.2533` instead
-  of `0.2523` — this engine now matches this value, based on the
-  cross-check evidence above, though neither pytides variant's value has
-  been confirmed against Schureman's actual text (see the citation gap
-  above).
+  `engine/tests/pytides_cross_check.rs`. Its `f_K2` (`0.2533`) is a
+  transcription error not present in `sam-cox/pytides`'s original —
+  confirmed by direct comparison against Schureman's text above, after
+  this engine briefly and incorrectly adopted the same error mid-session
+  (see "What's validated today").
 
-**Not yet consulted, but identified as candidates** (found via
-`WebSearch`, not fetched or read):
+**Surveyed but not used:**
 
 - `pyTMD` (Sutterley et al.), an actively maintained tidal-prediction
   package. [github.com/tsutterley/pyTMD](https://github.com/tsutterley/pyTMD).
