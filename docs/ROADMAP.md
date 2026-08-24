@@ -37,10 +37,21 @@ distinct case — see its milestone note below.
   (which needs CHS's own harmonic constants directly, still not
   obtained — see `docs/VALIDATION.md`), a distinct, lower-priority
   remaining check given how strong this evidence already is.
-- **0.2.0** — real station data sourced, converted, and bundled end to
-  end as an actual app-consumable *pipeline* (not just a validation
-  script) — `StationLocator::nearest` exercised against real bundled
-  data as part of it.
+- **0.2.0 (current)** — `engine::parse_station()` reads a simple,
+  dependency-free text format into a `Station` (`engine/src/data.rs`) —
+  the app-consumable loading half of the pipeline, as real code, not
+  just a validation script; verified round-tripping actual fitted data
+  through it end to end (parse → `HarmonicPredictor` → sensible
+  alternating High/Low extrema). Four real BC stations (Point Atkinson,
+  Port Hardy, Vancouver, Daajing Giids) are bundled in this format —
+  **for personal use, in the private companion repo, not this one**
+  (per the same CHS licensing/non-commercial constraint as 0.1.0's raw
+  data — see `docs/VALIDATION.md`). Three of the four were fit from
+  only ~30-day series, so only 12 of 23 constituents could be resolved
+  (documented, not hidden, in the private repo) — real, working, but
+  not CHS-official prediction quality. `StationLocator::nearest`
+  against real bundled data, and a proper multi-region distributable
+  pipeline (once licensing allows), remain open — see below.
 
 ### Platform MVPs, in order
 
@@ -112,9 +123,6 @@ Each stage needs its own real-data validation pass per
 
 ## Open questions blocking specific milestones
 
-- **0.2.0**: need the actual data-bundling pipeline (real station
-  constituent data → app-loadable format), separate from the validation
-  work already done for 0.1.0.
 - **0.9.0**: viewer-local vs. station-local time display for a
   non-nearest station — undecided, see above.
 - **0.3.0**: binding generation (UniFFI or alternative) needs

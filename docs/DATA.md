@@ -35,20 +35,30 @@ records loaded.
 
 ## Format
 
-Not yet decided. See `docs/ARCHITECTURE.md`'s "Data pipeline" section —
-open question is whether to go through TCD (and if so, only as an
-offline/build-time conversion step, never at runtime) or source
-constituent data directly from each authority in a non-TCD format from
-the start. Whatever is chosen, the on-device format should be something
-`engine/` can load directly (e.g. JSON or SQLite of `Station` +
-`Constituent` records) with no GPL tooling required at runtime.
+**Decided, for the BC stage**: a simple, dependency-free `key=value` +
+`NAME AMPLITUDE PHASE` text format, read by `engine::parse_station()`
+(`engine/src/data.rs`) — no JSON/SQLite, no TCD, no GPL tooling
+anywhere in the loading path. The TCD-vs-direct-sourcing question is
+moot for this stage: BC's data was sourced directly (real CHS observed
+water levels, harmonic constants fit from them — see
+`docs/VALIDATION.md`), never touching TCD at all. Worth revisiting for
+later stages if a TCD-packaged source (e.g. openwatersio/tide-database)
+ends up being the practical path there.
 
 ## Layout
 
 ```
-Data/stations/bc/   BC station data (empty — first stage, not yet populated)
+Data/stations/bc/   Empty in this public repo, by design — see below.
 ```
 
-Later stages add sibling directories (`Data/stations/ca/`,
-`Data/stations/us/`, etc.) rather than reorganizing what's already
-there.
+**Real BC station data isn't in this repo.** It's derived from CHS
+data that isn't flatly public domain and is for personal use only (see
+`docs/VALIDATION.md`'s Bibliography and the private companion repo's
+`ATTRIBUTION.md`) — committing it here, under this repo's permissive
+MIT/Apache license, would make it freely redistributable, including
+commercially, which contradicts that. Four BC stations are bundled in
+`engine::parse_station()`'s format in the private
+`tidal_chart-station-data` repo instead. Later stages add sibling
+directories (`Data/stations/ca/`, `Data/stations/us/`, etc.) to this
+same empty structure once a distribution-safe source is found for each
+— see `docs/ROADMAP.md`.

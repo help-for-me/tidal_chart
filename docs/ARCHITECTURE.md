@@ -55,28 +55,30 @@ Harmonic constituent data is commonly distributed in XTide's TCD binary
 format, normally read via `libtcd` (GPL). To keep the shipped app and
 engine GPL-free:
 
-- Constituent data should be **converted to an open, non-binary format**
-  (e.g. JSON or SQLite) as an offline preprocessing step, not read from
-  TCD at runtime.
-- That conversion step may use existing GPL tooling (e.g. `libtcd`,
-  XTide utilities) as a *build-time-only* tool against the data — GPL
-  covers software, not the underlying empirical harmonic constants
-  themselves, which come from NOAA/CHS/etc. publications. **This still
-  needs a real decision** before the data pipeline is built: whether to
-  go through TCD at all, or source constituent data directly from each
-  authority's own non-TCD publications (e.g. NOAA's API, CHS/IWLS) to
-  sidestep the question entirely.
-- Primary candidate source: `openwatersio/tide-database` ("Neaps") —
-  combines NOAA (~3,400 US stations, public domain) and TICON-4
-  (4,200+ global stations, CC BY 4.0), packaged as XTide-compatible TCD.
-  For Canada specifically, CHS/DFO's own data (via tides.gc.ca / IWLS)
-  may be a cleaner direct source — see `docs/DATA.md`.
-- Whatever format is chosen, `engine/` reads it directly with no
-  external crate dependency — the equilibrium-argument math (now
-  implemented, see `engine/src/astro.rs`) turned out to need only plain
-  Unix timestamps, not a calendar-aware date type.
+- Constituent data is **converted to an open, non-binary format** as an
+  offline preprocessing step, not read from TCD at runtime.
+- **Decided, for the BC stage**: sidestepped TCD entirely rather than
+  choosing a conversion path for it. BC's data was sourced directly —
+  real CHS observed water-level series, with harmonic constants fit
+  from them (a real harmonic *analysis*, the reverse of prediction —
+  see `docs/VALIDATION.md`) — never touching TCD, `libtcd`, or any GPL
+  tooling at any point. The `engine::parse_station()` format
+  (`engine/src/data.rs`) is a plain `key=value` + `NAME AMPLITUDE PHASE`
+  text file, loaded with no external crate dependency and no
+  calendar-aware date type (the equilibrium-argument math in
+  `engine/src/astro.rs` turned out to need only plain Unix timestamps).
+  TCD remains a candidate for *later* stages if a TCD-packaged source
+  (e.g. `openwatersio/tide-database`) ends up being the practical path
+  there — not decided, not needed for BC.
+- Primary candidate source for later stages: `openwatersio/tide-database`
+  ("Neaps") — combines NOAA (~3,400 US stations, public domain) and
+  TICON-4 (4,200+ global stations, CC BY 4.0), packaged as
+  XTide-compatible TCD. For Canada specifically, CHS/DFO's own data (via
+  tides.gc.ca / IWLS) was the actual BC-stage source — see `docs/DATA.md`.
 
-See `Data/stations/bc/README.md` for the concrete first-region pipeline.
+See `Data/stations/bc/README.md` for why that directory is empty in
+this repo despite BC being the proven first stage — the real data lives
+in a private companion repo (CHS licensing/non-commercial use).
 
 ## App shells (next step)
 
@@ -183,11 +185,15 @@ targets.
 
 ## Open questions carried into the buildout
 
-- **TCD vs. direct-from-authority data sourcing** — see above, affects
-  the whole data pipeline design.
-- **License check** on TICON-4's underlying GESLA sources and on
-  Canada's CHS/DFO data (described as "free under license," not flatly
-  public domain like NOAA) before bundling either.
+- **TCD vs. direct-from-authority data sourcing for later stages** —
+  resolved for BC (direct, no TCD); still open for Canada-wide/US/global.
+- **License check** on TICON-4's underlying GESLA sources before
+  bundling. Canada's CHS/DFO data's status is now confirmed as real,
+  not just described secondhand: "free under license," non-commercial
+  use specifically — see `docs/VALIDATION.md` and the private companion
+  repo's `ATTRIBUTION.md`. A proper distribution-safe path for CHS data
+  (if one exists) is still open before any Canada-wide bundling that
+  isn't personal-use-only.
 - **Binding generation** — UniFFI is the leading candidate for Rust →
   Swift/Kotlin bindings but hasn't been wired up or evaluated against
   alternatives (e.g. hand-rolled `cbindgen` + JNI) yet. Desktop doesn't

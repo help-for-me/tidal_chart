@@ -8,11 +8,13 @@ prediction from bundled constituent data. No network dependency for the
 core tide-chart flow, no server-fetched predictions.
 
 - Status: building
-- Version: 0.1.0 (engine validated against 8 real CHS stations'
-  observed water levels — see [`docs/VALIDATION.md`](docs/VALIDATION.md)
-  and [`docs/ROADMAP.md`](docs/ROADMAP.md) for exactly what that does
-  and doesn't cover; the app-side data pipeline for 0.2.0 is separate
-  and still open)
+- Version: 0.2.0 (engine validated against 8 real CHS stations'
+  observed water levels, and can load real station data via
+  `engine::parse_station()` — 4 BC stations bundled for personal use in
+  a private companion repo, per CHS's licensing. See
+  [`docs/VALIDATION.md`](docs/VALIDATION.md) and
+  [`docs/ROADMAP.md`](docs/ROADMAP.md) for exactly what that does and
+  doesn't cover)
 
 ## Why on-device computation, not cached predictions
 
