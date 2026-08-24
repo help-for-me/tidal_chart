@@ -4,7 +4,11 @@
 //! (NOAA Special Publication No. 98, public domain), identified by
 //! their Schureman equation numbers below, cross-checked against
 //! pytides' `nodal_corrections.py` (MIT-licensed) as a working
-//! reference. See `crate::astro` for provenance notes.
+//! reference — and then live-cross-checked (`engine/tests/pytides_cross_check.rs`)
+//! against pytides actually running, which caught a real
+//! transcription error in `f_k2` (see its comment below). See
+//! `docs/VALIDATION.md` for the full methodology and `crate::astro`
+//! for further provenance notes.
 
 use crate::astro::{Astro, D2R, R2D};
 
@@ -93,6 +97,17 @@ pub(crate) fn f_l2(a: &Astro) -> f64 {
 }
 
 // Schureman equations 235, 234, 71.
+//
+// The 0.2533 below is deliberately not 0.2523: sam-cox/pytides' source
+// (the original cross-reference this was ported from) has 0.2523, but
+// the drf5n/pytides Python-3 fork has 0.2533 instead - the two
+// "reference" copies disagree with each other. Live-cross-checking
+// this engine against both (see docs/VALIDATION.md and
+// engine/tests/pytides_cross_check.rs) showed 0.2533 brings agreement
+// with an independent implementation down to ~7e-6 across all 23
+// constituents over a week, versus ~0.0014 with 0.2523 - strong
+// evidence 0.2523 was a transcription error, though neither has been
+// confirmed against Schureman's actual text (that check is still open).
 pub(crate) fn f_k2(a: &Astro) -> f64 {
     let omega = D2R * a.omega.value;
     let i = D2R * a.i.value;
@@ -100,7 +115,7 @@ pub(crate) fn f_k2(a: &Astro) -> f64 {
     let nu = D2R * a.nu;
     let sinsq_i_cos2nu_mean = omega.sin().powi(2) * (1.0 - 1.5 * i.sin().powi(2));
     let mean = 0.5023 * sinsq_i_cos2nu_mean + 0.0365;
-    (0.2523 * big_i.sin().powi(4) + 0.0367 * big_i.sin().powi(2) * (2.0 * nu).cos() + 0.0013).sqrt()
+    (0.2533 * big_i.sin().powi(4) + 0.0367 * big_i.sin().powi(2) * (2.0 * nu).cos() + 0.0013).sqrt()
         / mean
 }
 
