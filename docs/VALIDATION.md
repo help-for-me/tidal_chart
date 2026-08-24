@@ -28,42 +28,70 @@ exercises astro → species lookup → nodal corrections (u, f) → the
 derivative-based bisection search end to end, without needing real
 station data.
 
-**Sources used**: the astronomical-element formulas (Meeus's
-*Astronomical Algorithms*, as used for Schureman's equations in NOAA
-Special Publication No. 98, "Manual of Harmonic Analysis and Prediction
-of Tides" — both public domain) were implemented from scratch, with
-[pytides](https://github.com/sam-cox/pytides) (MIT-licensed) consulted
-as a working cross-reference for the exact numeric coefficients and
-Doodson/XDO decoding — the same practice already documented in
-`docs/ARCHITECTURE.md`'s "not derived from XTide's or pytides' own
-code" principle: the *code* here is original, the constants are the
-same published astronomical facts pytides also implements.
+**Sources cited in code comments, and an honest note on how strong that
+citation actually is**: `astro.rs`/`nodal.rs`/`species.rs` cite Meeus's
+*Astronomical Algorithms* (by formula number: 7.1, 11.1, 21.3, 24.2,
+45.1, 45.7) and Schureman's NOAA Special Publication No. 98, "Manual of
+Harmonic Analysis and Prediction of Tides" (by equation number, e.g. 73,
+65, 227, 226, 214, 202 — both public domain). **Those citations were not
+independently confirmed against the primary texts** — this environment
+can't fetch either book directly (see below). What actually happened:
+[pytides](https://github.com/sam-cox/pytides) (MIT-licensed) — an
+existing, real implementation that itself cites Meeus/Schureman at those
+same equation numbers — was fetched and read verbatim (its source is on
+GitHub, which *is* reachable here), and the formulas/coefficients were
+ported from it into original Rust code, keeping its citations. So the
+equation numbers in this codebase are **pytides' attribution, carried
+forward, not independently verified against Schureman's or Meeus's
+actual text.** If pytides mis-cited or mis-transcribed one formula, this
+codebase would have inherited that silently — nothing in the current
+tests would catch a single wrong nodal-correction formula the way the
+speed-constant test would catch a wrong spanning-set coefficient.
+
+The one thing that *is* independent of pytides being right about
+anything: the constituent speeds above are widely, separately
+republished physical constants (not something only pytides asserts),
+and they match exactly.
 
 ## What's NOT validated yet — and why
 
 **No real station's published high/low predictions have been checked
-against `engine/`'s output.** The regression tests above confirm the
-*machinery* is self-consistent and matches known physical constants,
-but that's not the same as confirming a real CHS or NOAA station's
-actual published tide times match what this engine predicts from that
-station's real harmonic constants.
-
-This gap exists because **this development environment's network egress
-proxy blocks government tide-data domains at the policy level** —
-confirmed directly, not assumed:
+against `engine/`'s output**, and **the Meeus/Schureman citations
+haven't been checked against the primary texts themselves** (see above).
+Both gaps trace back to the same underlying constraint, and it's broader
+than "government tide-data sites are blocked" — that was this doc's
+first (too narrow) explanation; the real shape of it, confirmed by
+testing several different domains directly:
 
 ```
 gateway answered 403 to CONNECT (policy denial or upstream failure)
-  host: www.tides.gc.ca:443
-  host: api-iwls.dfo-mpo.gc.ca:443
-  host: www.dfo-mpo.gc.ca:443
-  host: api.tidesandcurrents.noaa.gov:443
-  host: tidesandcurrents.noaa.gov:443
+  host: www.tides.gc.ca:443            (Canada, CHS/DFO)
+  host: api-iwls.dfo-mpo.gc.ca:443     (Canada, CHS/DFO)
+  host: api.tidesandcurrents.noaa.gov:443  (US, NOAA)
+  host: archive.org:443                 (has the actual Schureman SP-98 scan)
+  host: en.wikipedia.org:443
 ```
 
-(github.com/raw.githubusercontent.com, used above for the pytides
-cross-reference, is not blocked — this is specific to government
-domains, not a general network outage.)
+This environment's network egress proxy allowlists a narrow set of
+code-hosting and package-registry domains (`github.com`,
+`raw.githubusercontent.com`, `registry.npmjs.org`, `pypi.org`,
+`index.crates.io`, a few others — the full list is in the proxy's own
+`noProxy` config) and blocks essentially everything else at the policy
+level, government sites included but not specific to them. `WebSearch`
+still works because it doesn't route through this local proxy at all —
+it returns summarized results from Anthropic's own search backend, which
+is how the archive.org copy of SP-98 was *found* even though it can't be
+*fetched* to actually read.
+
+Practical effect: this environment can verify things by (a) reading real
+source code from GitHub, and (b) checking output against independently
+well-known constants recalled directly. It cannot fetch a primary
+document (a government tide-data API, a scanned 1940s public-domain
+book, even Wikipedia) to check a citation or pull real station data
+directly. Both remaining gaps need the user to fetch and paste in the
+actual content — either a real BC station's data (for the prediction
+validation), or the relevant pages of SP-98 (for the citation check) —
+or a future environment/session with broader network access.
 
 ## The validation process (bake this in per region)
 
@@ -100,3 +128,21 @@ and unclear provenance. When that stage is reached, step 1 above becomes
 and harmonic constants (most maritime nations' hydrographic offices do,
 e.g. UKHO, SHOM, BOM), and prioritize validating against those" rather
 than assuming one global source suffices.
+
+## Separately: checking the Meeus/Schureman citations themselves
+
+Lower priority than real-station validation (the code's *output* is
+already checked against independent constants; this would only confirm
+the *documentation* is honest about which equation is which), but worth
+doing before calling the citations trustworthy:
+
+1. Schureman's SP-98 has a public-domain scan at
+   [archive.org](https://archive.org/details/manualofharmonic00schu)
+   (found via search, not fetchable directly from this environment —
+   see above). The equation numbers cited in `nodal.rs` (73, 65, 74, 66,
+   75, 67, 76, 68, 77, 69, 78, 70, 227, 226, 215, 213, 204, 235, 234, 71,
+   206, 207, 195, 149) and Tables 2/6 are the ones to check.
+2. Paste the relevant pages' text in, or download the PDF and hand it
+   over directly — either works.
+3. Compare each cited equation's actual formula against what's in
+   `nodal.rs`; record any discrepancy found (and fix it) here.
