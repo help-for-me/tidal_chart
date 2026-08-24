@@ -2,26 +2,37 @@ use crate::Station;
 
 /// Finds the nearest station to a GPS coordinate, from whatever
 /// station data is loaded.
+#[derive(uniffi::Object)]
 pub struct StationLocator {
     pub stations: Vec<Station>,
 }
 
+#[uniffi::export]
 impl StationLocator {
+    #[uniffi::constructor]
     pub fn new(stations: Vec<Station>) -> Self {
         Self { stations }
     }
 
     /// Nearest station to (`latitude`, `longitude`) by great-circle
     /// (haversine) distance, or `None` if `stations` is empty.
-    pub fn nearest(&self, latitude: f64, longitude: f64) -> Option<&Station> {
-        self.stations.iter().min_by(|a, b| {
-            haversine_km(latitude, longitude, a.latitude, a.longitude).total_cmp(&haversine_km(
-                latitude,
-                longitude,
-                b.latitude,
-                b.longitude,
-            ))
-        })
+    ///
+    /// Returns an owned clone rather than a reference: `Station` is
+    /// small (a handful of constituents), this is called rarely (once
+    /// per location change, not per frame), and UniFFI object methods
+    /// can't hand back a borrow across the FFI boundary anyway.
+    pub fn nearest(&self, latitude: f64, longitude: f64) -> Option<Station> {
+        self.stations
+            .iter()
+            .min_by(|a, b| {
+                haversine_km(latitude, longitude, a.latitude, a.longitude).total_cmp(&haversine_km(
+                    latitude,
+                    longitude,
+                    b.latitude,
+                    b.longitude,
+                ))
+            })
+            .cloned()
     }
 }
 

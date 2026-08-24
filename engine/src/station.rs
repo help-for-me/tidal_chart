@@ -2,7 +2,7 @@ use crate::Constituent;
 
 /// A tide station: location plus the harmonic constituents needed to
 /// predict water level there.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
 pub struct Station {
     /// Stable identifier from the source dataset (e.g. NOAA/CHS station ID).
     pub id: String,

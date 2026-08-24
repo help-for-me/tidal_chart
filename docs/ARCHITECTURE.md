@@ -34,12 +34,24 @@ the same math in Swift and Kotlin stopped being the best way to satisfy
 - **One implementation to validate and trust.** The hard-won correctness
   work (constituent summation, equilibrium argument, nodal factors)
   happens once, not twice, and regression tests only need writing once.
-- **Bindable, not just embeddable.** Tools like [UniFFI](https://mozilla.github.io/uniffi-rs/)
-  generate idiomatic Swift and Kotlin bindings directly from the Rust
-  crate, so each app calls it as a natural native API, not raw FFI.
-  `engine/Cargo.toml` already builds `staticlib`/`cdylib` outputs so
-  this is a drop-in step, not a restructure, once binding generation is
-  actually wired up.
+- **Bindable, not just embeddable.** [UniFFI](https://mozilla.github.io/uniffi-rs/)
+  generates idiomatic Swift and Kotlin bindings directly from the Rust
+  crate, so each app calls it as a natural native API, not raw FFI. Now
+  wired up (proc-macro style, no `.udl` file): `Station`, `Constituent`,
+  `TideExtremum`/`TideExtremumKind`, and `ParseStationError` are UniFFI
+  records/enums; `HarmonicPredictor` and `StationLocator` are UniFFI
+  objects (`new`/`water_level`/`extrema`/`station` and
+  `new`/`nearest` respectively); `parse_station` is an exported
+  top-level function. `uniffi::setup_scaffolding!()` in `lib.rs`
+  declares the FFI surface from those annotations alone. Bindings are
+  generated with `cargo run --features bindgen --bin uniffi-bindgen --
+  generate --library <built-lib> --language swift|kotlin --out-dir
+  <dir>` — verified in this environment to produce both a working
+  `HarmonicPredictor`/`StationLocator`/`Station` Swift API and the
+  equivalent Kotlin one (the `bindgen` feature keeps the CLI's `clap`
+  dependency out of the iOS/Android `staticlib` build; it's opt-in, not
+  default). Actually compiling the generated Swift into an Xcode target
+  still needs to happen locally (no Xcode/Swift toolchain here).
 
 Lives at `engine/` (a plain Rust crate — `cargo build` / `cargo test`
 work today, no Xcode/Android Studio required, which is why this is the
@@ -88,9 +100,10 @@ mind from the start — the point of the Rust engine and the shared
 desktop GUI is to not retrofit portability later.
 
 **iOS** (first): SwiftUI + CoreLocation. App target adds `engine/`'s
-generated Swift bindings as a dependency. Bundles converted station data
-(see `Data/`) as app resources. No network calls in the core tide-chart
-flow. Not yet scaffolded — needs Xcode locally.
+generated Swift bindings (now wired up — see "Bindable, not just
+embeddable" above) as a dependency. Bundles converted station data (see
+`Data/`) as app resources. No network calls in the core tide-chart flow.
+Not yet scaffolded — needs Xcode locally.
 
 **Desktop — Linux, macOS, Windows** (one shared codebase, built once,
 validated on each OS in that order): [`egui`](https://github.com/emilk/egui)
@@ -194,9 +207,9 @@ targets.
   repo's `ATTRIBUTION.md`. A proper distribution-safe path for CHS data
   (if one exists) is still open before any Canada-wide bundling that
   isn't personal-use-only.
-- **Binding generation** — UniFFI is the leading candidate for Rust →
-  Swift/Kotlin bindings but hasn't been wired up or evaluated against
-  alternatives (e.g. hand-rolled `cbindgen` + JNI) yet. Desktop doesn't
+- **Binding generation** — resolved: UniFFI, proc-macro style, wired up
+  and verified to generate working Swift and Kotlin bindings from
+  `engine/` (see "Bindable, not just embeddable" above). Desktop doesn't
   need this at all (pure Rust, direct crate dependency).
 - **Xcode / Android Studio app-target scaffolding** — needs to happen
   locally, on each respective platform's tooling. The desktop app is the

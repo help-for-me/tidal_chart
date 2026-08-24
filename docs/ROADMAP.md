@@ -60,7 +60,10 @@ entry on desktop) + current time and water level, then a 5-day (-1/+3)
 high/low tide chart for the nearest BC station, fully offline.
 
 - **0.3.0 — iOS MVP.** Xcode app target, SwiftUI + CoreLocation, depends
-  on `engine/` via generated Swift bindings.
+  on `engine/` via generated Swift bindings. Binding generation itself
+  is done (UniFFI, verified working — see `docs/ARCHITECTURE.md`); what
+  remains is the Xcode app target and SwiftUI screens, which need to
+  happen locally (no Xcode/Swift toolchain in this environment).
 - **0.4.0 — Linux MVP.** `egui`/`eframe` desktop app built and validated
   on Linux; manual location entry (no GPS on desktop).
 - **0.5.0 — macOS MVP.** Same desktop app codebase, validated on macOS.
@@ -125,9 +128,10 @@ Each stage needs its own real-data validation pass per
 
 - **0.9.0**: viewer-local vs. station-local time display for a
   non-nearest station — undecided, see above.
-- **0.3.0**: binding generation (UniFFI or alternative) needs
-  evaluating; Xcode app-target scaffolding has to happen locally, not in
-  this environment.
+- **0.3.0**: binding generation resolved — UniFFI wired up on `engine/`
+  (see `docs/ARCHITECTURE.md`), generates working Swift and Kotlin
+  bindings. What's left for 0.3.0 is Xcode app-target scaffolding, which
+  has to happen locally, not in this environment.
 - **0.4.0–0.5.0, 0.7.0**: none — the desktop app is buildable in an
   environment like this one, unlike the mobile shells.
 - **0.6.0**: Android Studio app-module scaffolding has to happen

@@ -22,7 +22,8 @@ use std::fmt;
 
 use crate::{Constituent, Station};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, uniffi::Error)]
+#[uniffi(flat_error)]
 pub enum ParseStationError {
     MissingField(&'static str),
     InvalidNumber { field: &'static str, line: usize },
@@ -49,6 +50,7 @@ impl fmt::Display for ParseStationError {
 impl std::error::Error for ParseStationError {}
 
 /// Parses a `Station` from the text format documented on this module.
+#[uniffi::export]
 pub fn parse_station(text: &str) -> Result<Station, ParseStationError> {
     let mut id: Option<String> = None;
     let mut name: Option<String> = None;

@@ -14,3 +14,22 @@ name = "tidal_engine"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
+# Generates idiomatic Swift/Kotlin bindings from the `#[uniffi::export]`
+# annotations below (see docs/ARCHITECTURE.md's "Bindable, not just
+# embeddable" note). No UDL file / build.rs needed — `setup_scaffolding!()`
+# in lib.rs plus these proc-macro attributes are the whole interface
+# description, so the crate stays the single source of truth.
+uniffi = "0.32.0"
+
+[dev-dependencies]
+uniffi = { version = "0.32.0", features = ["bindgen-tests"] }
+
+[features]
+# Off by default so `clap` and friends (needed only to run the
+# uniffi-bindgen binary below) don't end up in the iOS/Android staticlib.
+bindgen = ["uniffi/cli"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+required-features = ["bindgen"]

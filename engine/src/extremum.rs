@@ -1,5 +1,5 @@
 /// Whether a [`TideExtremum`] is a high or low tide.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
 pub enum TideExtremumKind {
     High,
     Low,
@@ -7,7 +7,7 @@ pub enum TideExtremumKind {
 
 /// A single high or low tide event: a local extremum of the predicted
 /// water level curve.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
 pub struct TideExtremum {
     pub kind: TideExtremumKind,
     /// Unix timestamp, seconds. Turned out to be sufficient on its own —

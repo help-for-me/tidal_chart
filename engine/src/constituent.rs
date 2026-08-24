@@ -3,7 +3,7 @@
 ///
 /// These values are empirical, not computed — they come from the
 /// station's harmonic constituent data, not derived at runtime.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
 pub struct Constituent {
     /// Standard constituent name, e.g. "M2", "S2", "K1", "O1".
     pub name: String,

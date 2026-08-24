@@ -28,3 +28,8 @@ pub use extremum::{TideExtremum, TideExtremumKind};
 pub use locator::StationLocator;
 pub use predictor::HarmonicPredictor;
 pub use station::Station;
+
+// Declares the FFI scaffolding for everything tagged `#[uniffi::export]` /
+// `#[derive(uniffi::...)]` above — no separate .udl file, see
+// engine/uniffi-bindgen.rs and docs/ARCHITECTURE.md.
+uniffi::setup_scaffolding!();

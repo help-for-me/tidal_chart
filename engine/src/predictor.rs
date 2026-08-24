@@ -11,46 +11,23 @@ use crate::{Station, TideExtremum, TideExtremumKind};
 /// from-scratch implementation of that published method — not derived
 /// from XTide's or any other GPL-licensed source — so the engine stays
 /// permissively licensed and safe to embed anywhere.
+#[derive(uniffi::Object)]
 pub struct HarmonicPredictor {
     pub station: Station,
 }
 
+#[uniffi::export]
 impl HarmonicPredictor {
+    #[uniffi::constructor]
     pub fn new(station: Station) -> Self {
         Self { station }
     }
 
-    /// Water level and its time-derivative at `unix_time_seconds`,
-    /// relative to `station.datum_offset`. Computed together since both
-    /// need the same astronomical elements at `unix_time_seconds`.
-    ///
-    /// Station constituents whose name isn't a recognized species (see
-    /// `crate::species`) are silently skipped — not yet validated
-    /// against real station data, so this is a documented gap, not a
-    /// hidden one.
-    fn evaluate(&self, unix_time_seconds: i64) -> (f64, f64) {
-        let a = astro::astro(unix_time_seconds);
-        let values = a.spanning_values();
-        let speeds = a.spanning_speeds();
-
-        let mut height = self.station.datum_offset;
-        let mut d_height = 0.0;
-
-        for constituent in &self.station.constituents {
-            let Some(sp) = species::find(&constituent.name) else {
-                continue;
-            };
-            let v: f64 = dot(&sp.coefficients, &values);
-            let speed_deg_per_hour: f64 = dot(&sp.coefficients, &speeds);
-            let u = (sp.u)(&a);
-            let f = (sp.f)(&a);
-            let phase_rad = D2R * (v + u - constituent.phase_degrees);
-
-            height += constituent.amplitude * f * phase_rad.cos();
-            d_height -= constituent.amplitude * f * (D2R * speed_deg_per_hour) * phase_rad.sin();
-        }
-
-        (height, d_height)
+    /// The station this predictor was built from — objects don't expose
+    /// fields directly across the FFI boundary the way records do, so
+    /// this is the generated bindings' way to read it back.
+    pub fn station(&self) -> Station {
+        self.station.clone()
     }
 
     /// Predicted water level at `unix_time_seconds`, relative to
@@ -118,6 +95,41 @@ impl HarmonicPredictor {
 
         results.sort_by_key(|e| e.unix_time_seconds);
         results
+    }
+}
+
+impl HarmonicPredictor {
+    /// Water level and its time-derivative at `unix_time_seconds`,
+    /// relative to `station.datum_offset`. Computed together since both
+    /// need the same astronomical elements at `unix_time_seconds`.
+    ///
+    /// Station constituents whose name isn't a recognized species (see
+    /// `crate::species`) are silently skipped — not yet validated
+    /// against real station data, so this is a documented gap, not a
+    /// hidden one.
+    fn evaluate(&self, unix_time_seconds: i64) -> (f64, f64) {
+        let a = astro::astro(unix_time_seconds);
+        let values = a.spanning_values();
+        let speeds = a.spanning_speeds();
+
+        let mut height = self.station.datum_offset;
+        let mut d_height = 0.0;
+
+        for constituent in &self.station.constituents {
+            let Some(sp) = species::find(&constituent.name) else {
+                continue;
+            };
+            let v: f64 = dot(&sp.coefficients, &values);
+            let speed_deg_per_hour: f64 = dot(&sp.coefficients, &speeds);
+            let u = (sp.u)(&a);
+            let f = (sp.f)(&a);
+            let phase_rad = D2R * (v + u - constituent.phase_degrees);
+
+            height += constituent.amplitude * f * phase_rad.cos();
+            d_height -= constituent.amplitude * f * (D2R * speed_deg_per_hour) * phase_rad.sin();
+        }
+
+        (height, d_height)
     }
 
     /// Bisects `[lo, hi]` (a bracket where the derivative changes sign,
